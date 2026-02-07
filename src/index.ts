@@ -68,21 +68,44 @@ function sendEvent(
 //  - spawn-creep, type: goblin | orc -> повертає об'єкт { id: number, type: string }.
 
 // TODO: Declare overloads here
-function runCommand(command, arg1, arg2, arg3) {
+type CreepType = 'goblin' | 'orc';
+
+function runCommand(command: 'get-health', targetId: number): number;
+function runCommand(command: 'get-status', targetId: number): string;
+function runCommand(
+    command: 'search-area',
+    x: number,
+    y: number,
+    radius?: number
+): string[];
+function runCommand(
+    command: 'spawn-creep',
+    type: CreepType
+): { id: number; type: CreepType };
+
+function runCommand(
+    command: string,
+    ...args: any[]
+): any {
     if (command === 'get-health') {
         return 100;
     }
+
     if (command === 'get-status') {
         return 'Stunned';
     }
+
     if (command === 'search-area') {
         return ['Rock', 'Tree', 'Chest'];
     }
+
     if (command === 'spawn-creep') {
-        return { id: Math.random(), type: arg1 };
+        return { id: Math.random(), type: args[0] as CreepType };
     }
+
     throw new Error('Unknown command');
 }
+
 
 // 4. Функція calculateDamage рахує урон, але вона також має властивість history, яка є масивом чисел.
 // Також вона має метод showHistory(), який нічого не повертає.
