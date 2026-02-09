@@ -113,22 +113,34 @@ function runCommand(
 
 // TODO: Define DamageCalculator type
 
-const calculateDamage = function (min, max) {
+type DamageCalculator = {
+    (min: number, max: number): number;
+    history: number[];
+    showHistory(): void;
+};
+
+const calculateDamage: DamageCalculator = function (min: number, max: number): number {
     const dmg = Math.floor(Math.random() * (max - min) + min);
     calculateDamage.history.push(dmg);
     return dmg;
 };
 
 calculateDamage.history = [];
-calculateDamage.showHistory = function () {
-    console.info('History:', this.history);
+
+calculateDamage.showHistory = function (): void {
+    console.info('History:', calculateDamage.history);
 };
+
 
 // 5. У нас є тип GameState. Напишіть функцію processState, яка повертає повідомлення.
 // У default зробіть перевірку, щоб переконатися, що всі стани оброблені.
 // Якщо додати новий стан у GameState, TS повинен підсвітити помилку в switch.
 
 type GameState = 'Loading' | 'Playing' | 'Paused'; // 'GameOver'
+
+function assertNever(value: never): never {
+    throw new Error(`Unhandled state: ${value}`);
+}
 
 function processState(state: GameState): string {
     switch (state) {
@@ -139,7 +151,10 @@ function processState(state: GameState): string {
         case 'Paused':
             return 'Press Start to continue';
         default:
-            return 'Unknown state';
+            return assertNever(state);
     }
 }
+
+
+
 
