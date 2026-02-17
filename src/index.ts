@@ -13,10 +13,34 @@ interface Truck {
     cargoWeight: number;
 }
 
-// interface Motorcycle {
-//   kind: 'motorcycle';
-//   hasSidecar: boolean;
-// }
+interface Motorcycle {
+    kind: 'motorcycle';
+    hasSidecar: boolean;
+}
+
+type Vehicle = Car | Truck | Motorcycle;
+
+function assertNever(value: never): never {
+    throw new Error(`Unhandled vehicle type: ${JSON.stringify(value)}`);
+}
+
+function getVehicleCapacity(vehicle: Vehicle): string {
+    switch (vehicle.kind) {
+        case 'car':
+            return `Car can carry ${vehicle.passengers} passengers`;
+
+        case 'truck':
+            return `Truck can carry ${vehicle.cargoWeight} kg`;
+
+        case 'motorcycle':
+            return vehicle.hasSidecar
+                ? 'Motorcycle with sidecar can carry 2 passengers'
+                : 'Motorcycle can carry 1 passenger';
+
+        default:
+            return assertNever(vehicle);
+    }
+}
 
 // 2. Ви отримуєте повідомлення через WebSocket, яке має тип unknown. Реалізуйте функцію-захисник типу isChatMessage,
 // яка перевіряє, чи відповідає отриманий об'єкт інтерфейсу ChatMessage. Використовуйте різні оператори
@@ -27,11 +51,28 @@ interface ChatMessage {
     authorId: number;
 }
 
-function isChatMessage() {}
+function isChatMessage(data: unknown): data is ChatMessage {
+    if (typeof data !== 'object' || data === null) {
+        return false;
+    }
+
+    if (!('text' in data) || !('authorId' in data)) {
+        return false;
+    }
+
+    const message = data as Record<string, unknown>;
+
+    return (
+        typeof message.text === 'string' &&
+        typeof message.authorId === 'number'
+    );
+}
 
 function processMessage(data: unknown): void {
     if (isChatMessage(data)) {
-        console.info(`User ${data.authorId} says: "${data.text.toUpperCase()}"`);
+        console.info(
+            `User ${data.authorId} says: "${data.text.toUpperCase()}"`
+        );
     } else {
         console.error('Invalid format');
     }
@@ -45,3 +86,12 @@ function processMessage(data: unknown): void {
 type RouteHandlers = {
     [routePath: string]: string | { action: () => void };
 };
+
+const appRoutes = {
+    home: 'HomeComponent',
+    login: {
+        action: () => {
+            console.log('Login action executed');
+        }
+    }
+} satisfies RouteHandlers;
