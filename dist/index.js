@@ -1,64 +1,23 @@
-enum NoteStatus {
-    ACTIVE = 'active',
-    COMPLETED = 'completed',
-}
-
-enum NoteType {
-    DEFAULT = 'default',
-    CONFIRMABLE = 'confirmable',
-}
-
-enum SortField {
-    STATUS = 'status',
-    CREATED_AT = 'createdAt',
-}
-
-interface NotePayload {
-    title: string;
-    content: string;
-}
-
-interface NoteStats {
-    total: number;
-    completed: number;
-    uncompleted: number;
-}
-
-interface Searchable<T> {
-    search(query: string): T[];
-}
-
-interface Sortable<T> {
-    sortBy(field: SortField): T[];
-}
-
-interface INote {
-    readonly id: number;
-    readonly type: NoteType;
-    title: string;
-    content: string;
-    readonly createdAt: Date;
-    updatedAt: Date;
-    status: NoteStatus;
-
-    edit(data: Partial<NotePayload>): void;
-    markAsCompleted(): void;
-    getInfo(): string;
-}
-
-abstract class Note implements INote {
-    public readonly id: number;
-    public readonly type: NoteType;
-    public title: string;
-    public content: string;
-    public readonly createdAt: Date;
-    public updatedAt: Date;
-    public status: NoteStatus;
-
-    constructor(id: number, title: string, content: string, type: NoteType) {
+"use strict";
+var NoteStatus;
+(function (NoteStatus) {
+    NoteStatus["ACTIVE"] = "active";
+    NoteStatus["COMPLETED"] = "completed";
+})(NoteStatus || (NoteStatus = {}));
+var NoteType;
+(function (NoteType) {
+    NoteType["DEFAULT"] = "default";
+    NoteType["CONFIRMABLE"] = "confirmable";
+})(NoteType || (NoteType = {}));
+var SortField;
+(function (SortField) {
+    SortField["STATUS"] = "status";
+    SortField["CREATED_AT"] = "createdAt";
+})(SortField || (SortField = {}));
+class Note {
+    constructor(id, title, content, type) {
         this.validateText(title, 'Title');
         this.validateText(content, 'Content');
-
         this.id = id;
         this.title = title.trim();
         this.content = content.trim();
@@ -67,33 +26,27 @@ abstract class Note implements INote {
         this.updatedAt = new Date();
         this.status = NoteStatus.ACTIVE;
     }
-
-    protected validateText(value: string, fieldName: string): void {
+    validateText(value, fieldName) {
         if (typeof value !== 'string' || !value.trim()) {
             throw new Error(`${fieldName} cannot be empty`);
         }
     }
-
-    protected applyEdit(data: Partial<NotePayload>): void {
+    applyEdit(data) {
         if (data.title !== undefined) {
             this.validateText(data.title, 'Title');
             this.title = data.title.trim();
         }
-
         if (data.content !== undefined) {
             this.validateText(data.content, 'Content');
             this.content = data.content.trim();
         }
-
         this.updatedAt = new Date();
     }
-
-    public markAsCompleted(): void {
+    markAsCompleted() {
         this.status = NoteStatus.COMPLETED;
         this.updatedAt = new Date();
     }
-
-    public getInfo(): string {
+    getInfo() {
         return [
             `ID: ${this.id}`,
             `Type: ${this.type}`,
@@ -104,177 +57,121 @@ abstract class Note implements INote {
             `Status: ${this.status}`,
         ].join('\n');
     }
-
-    public abstract edit(data: Partial<NotePayload>): void;
 }
-
 class DefaultNote extends Note {
-    constructor(id: number, title: string, content: string) {
+    constructor(id, title, content) {
         super(id, title, content, NoteType.DEFAULT);
     }
-
-    public edit(data: Partial<NotePayload>): void {
+    edit(data) {
         this.applyEdit(data);
     }
 }
-
 class ConfirmableNote extends Note {
-    constructor(id: number, title: string, content: string) {
+    constructor(id, title, content) {
         super(id, title, content, NoteType.CONFIRMABLE);
     }
-
-    private confirmEdit(): boolean {
+    confirmEdit() {
         return true;
     }
-
-    public edit(data: Partial<NotePayload>): void {
+    edit(data) {
         const isConfirmed = this.confirmEdit();
-
         if (!isConfirmed) {
             throw new Error('Edit was not confirmed');
         }
-
         this.applyEdit(data);
     }
 }
-
-class TodoList implements Searchable<INote>, Sortable<INote> {
-    private notes: INote[] = [];
-    private nextId = 1;
-
-    public addNote(
-        title: string,
-        content: string,
-        type: NoteType = NoteType.DEFAULT
-    ): INote {
-        const note: INote =
-            type === NoteType.CONFIRMABLE
-                ? new ConfirmableNote(this.nextId, title, content)
-                : new DefaultNote(this.nextId, title, content);
-
+class TodoList {
+    constructor() {
+        this.notes = [];
+        this.nextId = 1;
+    }
+    addNote(title, content, type = NoteType.DEFAULT) {
+        const note = type === NoteType.CONFIRMABLE
+            ? new ConfirmableNote(this.nextId, title, content)
+            : new DefaultNote(this.nextId, title, content);
         this.notes.push(note);
         this.nextId += 1;
-
         return note;
     }
-
-    public removeNote(id: number): void {
+    removeNote(id) {
         const index = this.notes.findIndex((note) => note.id === id);
-
         if (index === -1) {
             throw new Error(`Note with id ${id} not found`);
         }
-
         this.notes.splice(index, 1);
     }
-
-    public editNote(id: number, data: Partial<NotePayload>): void {
+    editNote(id, data) {
         const note = this.getNoteById(id);
         note.edit(data);
     }
-
-    public getNoteById(id: number): INote {
+    getNoteById(id) {
         const note = this.notes.find((item) => item.id === id);
-
         if (!note) {
             throw new Error(`Note with id ${id} not found`);
         }
-
         return note;
     }
-
-    public getAllNotes(): INote[] {
+    getAllNotes() {
         return [...this.notes];
     }
-
-    public markNoteAsCompleted(id: number): void {
+    markNoteAsCompleted(id) {
         const note = this.getNoteById(id);
         note.markAsCompleted();
     }
-
-    public getStats(): NoteStats {
+    getStats() {
         const total = this.notes.length;
-        const completed = this.notes.filter(
-            (note) => note.status === NoteStatus.COMPLETED
-        ).length;
-
+        const completed = this.notes.filter((note) => note.status === NoteStatus.COMPLETED).length;
         return {
             total,
             completed,
             uncompleted: total - completed,
         };
     }
-
-    public search(query: string): INote[] {
+    search(query) {
         if (typeof query !== 'string' || !query.trim()) {
             throw new Error('Search query cannot be empty');
         }
-
         const normalizedQuery = query.trim().toLowerCase();
-
         return this.notes.filter((note) => {
-            return (
-                note.title.toLowerCase().includes(normalizedQuery) ||
-                note.content.toLowerCase().includes(normalizedQuery)
-            );
+            return (note.title.toLowerCase().includes(normalizedQuery) ||
+                note.content.toLowerCase().includes(normalizedQuery));
         });
     }
-
-    public sortBy(field: SortField): INote[] {
+    sortBy(field) {
         const sortedNotes = [...this.notes];
-
         switch (field) {
             case SortField.STATUS:
                 return sortedNotes.sort((a, b) => a.status.localeCompare(b.status));
-
             case SortField.CREATED_AT:
-                return sortedNotes.sort(
-                    (a, b) => a.createdAt.getTime() - b.createdAt.getTime()
-                );
-
+                return sortedNotes.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
             default:
                 return sortedNotes;
         }
     }
 }
-
 // Example usage
-
 const todoList = new TodoList();
-
 todoList.addNote('Buy milk', 'Need to buy 2 liters of milk');
 todoList.addNote('Learn TypeScript', 'Read about interfaces and classes');
-todoList.addNote(
-    'Important task',
-    'This note requires confirmation before editing',
-    NoteType.CONFIRMABLE
-);
-
+todoList.addNote('Important task', 'This note requires confirmation before editing', NoteType.CONFIRMABLE);
 todoList.editNote(1, { content: 'Need to buy 3 liters of milk' });
 todoList.markNoteAsCompleted(2);
-
 console.log('=== ALL NOTES ===');
 todoList.getAllNotes().forEach((note) => {
     console.log(note.getInfo());
     console.log('--------------------');
 });
-
 console.log('=== NOTE BY ID ===');
 console.log(todoList.getNoteById(1).getInfo());
-
 console.log('=== SEARCH ===');
 console.log(todoList.search('milk'));
-
 console.log('=== SORT BY STATUS ===');
 console.log(todoList.sortBy(SortField.STATUS));
-
 console.log('=== SORT BY CREATED_AT ===');
 console.log(todoList.sortBy(SortField.CREATED_AT));
-
 console.log('=== STATS ===');
 console.log(todoList.getStats());
-
 todoList.removeNote(1);
-
 console.log('=== AFTER REMOVE ===');
 console.log(todoList.getAllNotes());
