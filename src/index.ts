@@ -1,280 +1,127 @@
-enum NoteStatus {
-    ACTIVE = 'active',
-    COMPLETED = 'completed',
+enum ListFilterTypeEnum {
+    MATCH = 'MATCH',
+    RANGE = 'RANGE',
+    SET = 'SET',
 }
 
-enum NoteType {
-    DEFAULT = 'default',
-    CONFIRMABLE = 'confirmable',
-}
+type MatchFilter<T> = {
+    type: ListFilterTypeEnum.MATCH;
+    filter: T;
+};
 
-enum SortField {
-    STATUS = 'status',
-    CREATED_AT = 'createdAt',
-}
+type RangeFilter<T extends number> = {
+    type: ListFilterTypeEnum.RANGE;
+    filter: T;
+    filterTo: T;
+};
 
-interface NotePayload {
-    title: string;
-    content: string;
-}
+type SetFilter<T extends string> = {
+    type: ListFilterTypeEnum.SET;
+    values: T[];
+};
 
-interface NoteStats {
-    total: number;
-    completed: number;
-    uncompleted: number;
-}
-
-interface Searchable<T> {
-    search(query: string): T[];
-}
-
-interface Sortable<T> {
-    sortBy(field: SortField): T[];
-}
-
-interface INote {
+interface Film {
     readonly id: number;
-    readonly type: NoteType;
-    title: string;
-    content: string;
-    readonly createdAt: Date;
-    updatedAt: Date;
-    status: NoteStatus;
-
-    edit(data: Partial<NotePayload>): void;
-    markAsCompleted(): void;
-    getInfo(): string;
+    name: string;
+    year: number;
+    awards: ReadonlyArray<string>;
+    rating: number;
 }
 
-abstract class Note implements INote {
-    public readonly id: number;
-    public readonly type: NoteType;
-    public title: string;
-    public content: string;
-    public readonly createdAt: Date;
-    public updatedAt: Date;
-    public status: NoteStatus;
-
-    constructor(id: number, title: string, content: string, type: NoteType) {
-        this.validateText(title, 'Title');
-        this.validateText(content, 'Content');
-
-        this.id = id;
-        this.title = title.trim();
-        this.content = content.trim();
-        this.type = type;
-        this.createdAt = new Date();
-        this.updatedAt = new Date();
-        this.status = NoteStatus.ACTIVE;
-    }
-
-    protected validateText(value: string, fieldName: string): void {
-        if (typeof value !== 'string' || !value.trim()) {
-            throw new Error(`${fieldName} cannot be empty`);
-        }
-    }
-
-    protected applyEdit(data: Partial<NotePayload>): void {
-        if (data.title !== undefined) {
-            this.validateText(data.title, 'Title');
-            this.title = data.title.trim();
-        }
-
-        if (data.content !== undefined) {
-            this.validateText(data.content, 'Content');
-            this.content = data.content.trim();
-        }
-
-        this.updatedAt = new Date();
-    }
-
-    public markAsCompleted(): void {
-        this.status = NoteStatus.COMPLETED;
-        this.updatedAt = new Date();
-    }
-
-    public getInfo(): string {
-        return [
-            `ID: ${this.id}`,
-            `Type: ${this.type}`,
-            `Title: ${this.title}`,
-            `Content: ${this.content}`,
-            `Created at: ${this.createdAt.toLocaleString()}`,
-            `Updated at: ${this.updatedAt.toLocaleString()}`,
-            `Status: ${this.status}`,
-        ].join('\n');
-    }
-
-    public abstract edit(data: Partial<NotePayload>): void;
+interface Category {
+    readonly id: number;
+    name: string;
+    films: ReadonlyArray<Film>;
 }
 
-class DefaultNote extends Note {
-    constructor(id: number, title: string, content: string) {
-        super(id, title, content, NoteType.DEFAULT);
-    }
-
-    public edit(data: Partial<NotePayload>): void {
-        this.applyEdit(data);
-    }
+interface BaseFiltersState {
+    name: MatchFilter<string>;
 }
 
-class ConfirmableNote extends Note {
-    constructor(id: number, title: string, content: string) {
-        super(id, title, content, NoteType.CONFIRMABLE);
-    }
+interface CategoryFiltersState extends BaseFiltersState {}
 
-    private confirmEdit(): boolean {
-        return true;
-    }
-
-    public edit(data: Partial<NotePayload>): void {
-        const isConfirmed = this.confirmEdit();
-
-        if (!isConfirmed) {
-            throw new Error('Edit was not confirmed');
-        }
-
-        this.applyEdit(data);
-    }
+interface FilmFiltersState extends BaseFiltersState {
+    year?: MatchFilter<number> | RangeFilter<number>;
+    rating?: RangeFilter<number>;
+    awards?: SetFilter<string>;
 }
 
-class TodoList implements Searchable<INote>, Sortable<INote> {
-    private notes: INote[] = [];
-    private nextId = 1;
+abstract class BaseList<T, U extends BaseFiltersState> {
+    protected _items: ReadonlyArray<T>;
+    protected _filtersState: U;
 
-    public addNote(
-        title: string,
-        content: string,
-        type: NoteType = NoteType.DEFAULT
-    ): INote {
-        const note: INote =
-            type === NoteType.CONFIRMABLE
-                ? new ConfirmableNote(this.nextId, title, content)
-                : new DefaultNote(this.nextId, title, content);
-
-        this.notes.push(note);
-        this.nextId += 1;
-
-        return note;
+    constructor(items: ReadonlyArray<T>, filtersState: U) {
+        this._items = items;
+        this._filtersState = filtersState;
     }
 
-    public removeNote(id: number): void {
-        const index = this.notes.findIndex((note) => note.id === id);
-
-        if (index === -1) {
-            throw new Error(`Note with id ${id} not found`);
-        }
-
-        this.notes.splice(index, 1);
-    }
-
-    public editNote(id: number, data: Partial<NotePayload>): void {
-        const note = this.getNoteById(id);
-        note.edit(data);
-    }
-
-    public getNoteById(id: number): INote {
-        const note = this.notes.find((item) => item.id === id);
-
-        if (!note) {
-            throw new Error(`Note with id ${id} not found`);
-        }
-
-        return note;
-    }
-
-    public getAllNotes(): INote[] {
-        return [...this.notes];
-    }
-
-    public markNoteAsCompleted(id: number): void {
-        const note = this.getNoteById(id);
-        note.markAsCompleted();
-    }
-
-    public getStats(): NoteStats {
-        const total = this.notes.length;
-        const completed = this.notes.filter(
-            (note) => note.status === NoteStatus.COMPLETED
-        ).length;
-
-        return {
-            total,
-            completed,
-            uncompleted: total - completed,
+    public applySearchValue(val: string): void {
+        this._filtersState = {
+            ...this._filtersState,
+            name: {
+                type: ListFilterTypeEnum.MATCH,
+                filter: val,
+            },
         };
     }
+}
 
-    public search(query: string): INote[] {
-        if (typeof query !== 'string' || !query.trim()) {
-            throw new Error('Search query cannot be empty');
-        }
-
-        const normalizedQuery = query.trim().toLowerCase();
-
-        return this.notes.filter((note) => {
-            return (
-                note.title.toLowerCase().includes(normalizedQuery) ||
-                note.content.toLowerCase().includes(normalizedQuery)
-            );
-        });
-    }
-
-    public sortBy(field: SortField): INote[] {
-        const sortedNotes = [...this.notes];
-
-        switch (field) {
-            case SortField.STATUS:
-                return sortedNotes.sort((a, b) => a.status.localeCompare(b.status));
-
-            case SortField.CREATED_AT:
-                return sortedNotes.sort(
-                    (a, b) => a.createdAt.getTime() - b.createdAt.getTime()
-                );
-
-            default:
-                return sortedNotes;
-        }
+class FilmList extends BaseList<Film, FilmFiltersState> {
+    public applyFiltersValue(
+        filters: Partial<Omit<FilmFiltersState, 'name'>>,
+    ): void {
+        this._filtersState = {
+            ...this._filtersState,
+            ...filters,
+        };
     }
 }
 
-// Example usage
+class CategoryList extends BaseList<Category, CategoryFiltersState> {}
 
-const todoList = new TodoList();
+type PartialTuple<T extends unknown[]> = T extends [infer F, ...infer R]
+    ? [F] | [F, ...PartialTuple<R>]
+    : never;
 
-todoList.addNote('Buy milk', 'Need to buy 2 liters of milk');
-todoList.addNote('Learn TypeScript', 'Read about interfaces and classes');
-todoList.addNote(
-    'Important task',
-    'This note requires confirmation before editing',
-    NoteType.CONFIRMABLE
-);
+type TupleOfUnknown<T> = T extends [unknown, ...infer R]
+    ? [unknown, ...TupleOfUnknown<R>]
+    : [];
 
-todoList.editNote(1, { content: 'Need to buy 3 liters of milk' });
-todoList.markNoteAsCompleted(2);
+type Curry<Args extends unknown[], Return> = Args extends []
+    ? () => Return
+    : <T extends PartialTuple<Args>>(...args: T) => Args extends [...TupleOfUnknown<T>, ...infer Rest]
+        ? Rest extends []
+            ? Return
+            : Curry<Rest, Return>
+        : never;
 
-console.log('=== ALL NOTES ===');
-todoList.getAllNotes().forEach((note) => {
-    console.log(note.getInfo());
-    console.log('--------------------');
-});
+function curry<A extends unknown[], R>(fn: (...args: A) => R): Curry<A, R> {
+    const curried = (...args: unknown[]): unknown => {
+        if (args.length >= fn.length) {
+            return fn(...(args as A));
+        }
 
-console.log('=== NOTE BY ID ===');
-console.log(todoList.getNoteById(1).getInfo());
+        return (...nextArgs: unknown[]) => curried(...args, ...nextArgs);
+    };
 
-console.log('=== SEARCH ===');
-console.log(todoList.search('milk'));
+    return curried as Curry<A, R>;
+}
 
-console.log('=== SORT BY STATUS ===');
-console.log(todoList.sortBy(SortField.STATUS));
+function buildUrl(
+    protocol: string,
+    domain: string,
+    path: string,
+    port: number,
+    q: boolean,
+): string {
+    return `${protocol}://${domain}/${path}:${port}${q ? '?q=true' : ''}`;
+}
 
-console.log('=== SORT BY CREATED_AT ===');
-console.log(todoList.sortBy(SortField.CREATED_AT));
+const curriedBuilder = curry(buildUrl);
 
-console.log('=== STATS ===');
-console.log(todoList.getStats());
+const withHttps = curriedBuilder('https', 'example.com');
+const withDomain = withHttps('api/users');
+const final = withDomain(4200);
+const superFinal = final(true);
 
-todoList.removeNote(1);
-
-console.log('=== AFTER REMOVE ===');
-console.log(todoList.getAllNotes());
+console.log(superFinal);

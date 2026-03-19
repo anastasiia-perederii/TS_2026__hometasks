@@ -1,10 +1,10 @@
 {
-  "name": "${PROJECT_NAME}",
+  "name": "${TODO}",
   "version": "1.0.0",
   "description": "",
-  "main": "dist/index.js",
+  "main": "dist/hw.js",
   "scripts": {
-    "build": "tsc && node dist/index.js",
+    "build": "tsc && node dist/hw.js",
     "watch": "tsc --watch"
   },
   "dependencies": {},
